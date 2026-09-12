@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return isAuthenticated() && request.auth.token.email == 'razanajaf38@gmail.com';
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // AI Apps catalog
+    match /ai_apps/{appId} {
+      // Anyone authenticated can read store apps
+      allow read: if true;
+      // Only the verified Owner (Najaf Raza) can create, update or delete AI apps
+      allow create, update, delete: if isOwner();
+    }
+
+    // Reviews and Ratings collection
+    match /reviews/{reviewId} {
+      // Approved reviews are readable by anyone; flagged/hidden reviews are readable by the author or owner
+      allow read: if resource.data.status == 'approved' || (isAuthenticated() && (resource.data.userId == request.auth.uid || isOwner()));
+      
+      // Any authenticated user can submit a rating & review for an AI app
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.rating >= 1 
+        && request.resource.data.rating <= 5
+        && request.resource.data.status == 'approved';
+
+      // Authors can update their own review text/rating; Owner can update status (moderation) and ownerReply
+      allow update: if isOwner() || (
+        isAuthenticated() 
+        && resource.data.userId == request.auth.uid 
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.rating >= 1 
+        && request.resource.data.rating <= 5
+      );
+
+      // Authors or the Owner can delete reviews
+      allow delete: if isOwner() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // Security audit logs: only readable and writable by Owner or backend security events
+    match /security_events/{eventId} {
+      allow read: if isOwner();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Immutable audit trail
+    }
+
+    // User profiles & 2FA metadata
+    match /users/{userId} {
+      allow read: if isUser(userId) || isOwner();
+      allow create, update: if isUser(userId) || isOwner();
+      allow delete: if isOwner();
+    }
+  }
+}

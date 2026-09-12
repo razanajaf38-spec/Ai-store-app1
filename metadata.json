@@ -1,0 +1,6 @@
+{
+  "name": "AI Store",
+  "description": "Discover, explore, rate, and review premier AI applications with verified user reviews and owner moderation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
